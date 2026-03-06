@@ -1,6 +1,6 @@
 import socket
-import threading
-from threading import Lock
+import multiprocessing
+from multiprocessing import Lock
 
 HOST = '0.0.0.0'
 PORT = 80
@@ -65,7 +65,7 @@ def recibir_conexiones():
         # No se juntan hilos, porque cuando se sale del while con el break
         # la función "manejar_conn" RETORNA, por lo que su función target
         # deja de servir y este de termina y destruye.
-        threading.Thread(target=manejar_conn, args=(addresses, addr, conn)).start()
-        print(f"Hilos vivos: {threading.active_count()}")
+        multiprocessing.Process(target=manejar_conn, args=(addresses, addr, conn)).start()
+        print(f"Procesos vivos: {multiprocessing.active_count()}")
 
 recibir_conexiones()
