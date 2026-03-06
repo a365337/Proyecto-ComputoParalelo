@@ -1,18 +1,20 @@
 import socket
 import threading
 from threading import Lock
+import time
 
-HOST = 'localhost'
-PORT = 65432
+HOST = '0.0.0.0'
+PORT = 80
 cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 cliente.connect((HOST, PORT))
 
-def recibir(conn, lock):
+def recibir(conn):
     while True:
         try:
+            lock.acquire()
             data = conn.recv(1024)
             if data:
-                print(f"\nServer: {data.decode('utf-8')}\n", end="")
+                print(f"\n[Server]: {data.decode()}\n", end="")
             else:
                 conn.close()
                 break
@@ -20,34 +22,40 @@ def recibir(conn, lock):
             print(f"Error: {e}")
             conn.close()
             break
+        finally:
+            lock.release()
     
 o = 0
 lock = Lock()
-while True:
 
-    lock.acquire()
+def get_clientes():
+    cliente.send("GET_CLIENTES".encode())
+    
+
+while True:
+    
     print("Seleccione una opción:\n")
-    print("1) Mandar mensajes\n")
-    print("2) Mostrar conectados\n  ")
-    print("3) Salir\n")
-    lock.release()
+    print("1) Mensajeria\n")
+    print("2) Salir\n")
+
     try:
         o = int(input("Ingrese una opción: "))
-        #lock.release()
     except ValueError:
         print("\nIngrese un número válido")
         continue
 
     if o == 1:
+        get_clientes()
+        # Se necesita tratar la cantidad de hilos vivos, ya que
+        # cuando se entra a la función se crea un nuevo hilo.
+        threading.Thread(target=recibir, args=(cliente,)).start()
+        print("\n!!!!!!!!!Hilos vivos: ", threading.active_count())
+        #Solo para cuestiones esteticas, que se vea bien en la consola
+        time.sleep(0.5)
         data = input("Ingrese un mensaje: ")
         cliente.send(data.encode("utf-8"))
-        threading.Thread(target=recibir, args=(cliente,lock)).start()
     elif o == 2:
-        data = "clientes"
-        cliente.send(data.encode("utf-8"))
-        threading.Thread(target=recibir, args=(cliente,lock)).start()
-    elif o == 3:
         break
     
-cliente.close()
     
+cliente.close()
