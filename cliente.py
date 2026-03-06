@@ -9,21 +9,18 @@ cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 cliente.connect((HOST, PORT))
 
 def recibir(conn):
-    while True:
-        try:
-            lock.acquire()
-            data = conn.recv(1024)
-            if data:
-                print(f"\n[Server]: {data.decode()}\n", end="")
-            else:
-                conn.close()
-                break
-        except Exception as e:
-            print(f"Error: {e}")
+    try:
+        lock.acquire()
+        data = conn.recv(1024)
+        if data:
+            print(f"\n[Server]: {data.decode()}\n", end="")
+        else:
             conn.close()
-            break
-        finally:
-            lock.release()
+    except Exception as e:
+        print(f"Error: {e}")
+        conn.close()
+    finally:
+        lock.release()
     
 o = 0
 lock = Lock()
@@ -46,12 +43,7 @@ while True:
 
     if o == 1:
         get_clientes()
-        # Se necesita tratar la cantidad de hilos vivos, ya que
-        # cuando se entra a la función se crea un nuevo hilo.
-        threading.Thread(target=recibir, args=(cliente,)).start()
-        print("\n!!!!!!!!!Hilos vivos: ", threading.active_count())
-        #Solo para cuestiones esteticas, que se vea bien en la consola
-        time.sleep(0.5)
+        recibir(cliente)
         data = input("Ingrese un mensaje: ")
         cliente.send(data.encode("utf-8"))
     elif o == 2:

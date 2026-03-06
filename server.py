@@ -1,6 +1,6 @@
 import socket
-import multiprocessing
-from multiprocessing import Lock
+import threading
+from threading import Lock
 
 HOST = '0.0.0.0'
 PORT = 80
@@ -33,7 +33,7 @@ def mensajes_clientes(m, conn, addr):
     except Exception as e:
         print("Error al recibir el mensaje: ", e)
 
-def manejar_conn(addresses, addr, conn):
+def manejar_conn(addresses, conn, addr):
     while True:
         try:
             data = conn.recv(1024)
@@ -49,7 +49,8 @@ def manejar_conn(addresses, addr, conn):
                 mensajes_clientes(data.decode(), conn, addr)
         except:
             print(f"Se quita al cliente #{addresses.index(addr[1])}")
-            addresses.remove(addr[1])
+            with lock:
+                addresses.remove(addr[1])
             break
 
 
@@ -59,13 +60,14 @@ def recibir_conexiones():
         
         # Por ahora solo se hace con puerto porque es local,
         # pero si quieren usar web se tiene que pasar la IP y el puerto.
-        addresses.append(addr[1]) 
-        print(f"Conexion Aceptada: {addr}")
+        with lock:
+            addresses.append(addr[1]) 
+            print(f"Conexion Aceptada: {addr[1]}")
 
         # No se juntan hilos, porque cuando se sale del while con el break
         # la función "manejar_conn" RETORNA, por lo que su función target
         # deja de servir y este de termina y destruye.
-        multiprocessing.Process(target=manejar_conn, args=(addresses, addr, conn)).start()
-        print(f"Procesos vivos: {multiprocessing.active_count()}")
+        threading.Thread(target=manejar_conn, args=(addresses, conn, addr)).start()
+        print(f"Hilos vivos: {threading.active_count()}")
 
 recibir_conexiones()
