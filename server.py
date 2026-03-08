@@ -1,6 +1,7 @@
 import socket
 import threading
 from threading import Lock
+import json
 
 HOST = '0.0.0.0'
 PORT = 80
@@ -9,14 +10,15 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen(1)
 
-addresses = []
+connexiones = {}
 lock = Lock()
 
 def comandos(data, conn):
     try:
         if data == "GET_CLIENTES":
-            data = str(addresses)
-            conn.send(data.encode())
+            with lock:
+                data = str([k for k in connexiones.keys()])
+                conn.send(data.encode())
         else:
             conn.close()
     except Exception as e:
@@ -26,14 +28,19 @@ def comandos(data, conn):
 #Manejar mensajes entre clientes
 def mensajes_clientes(m, conn, addr):
     try:
-        if m:
-            lock.acquire()
-            print(f"\nCliente #{addresses.index(addr[1])}: {m}\n")
-            lock.release()
+        m = json.loads(m)
+        id_mensajero = m["id_mensajero"]
+        id_receptor = m["id_receptor"]
+        mensaje = m["mensaje"]
+        with lock:
+            connexiones[id_receptor].send(f"Cliente #{id_mensajero}: {mensaje}".encode())
     except Exception as e:
+        with lock:
+            connexiones.pop(id_receptor)
+        conn.close()
         print("Error al recibir el mensaje: ", e)
 
-def manejar_conn(addresses, conn, addr):
+def manejar_conn(connexiones, conn, addr):
     while True:
         try:
             data = conn.recv(1024)
@@ -48,9 +55,9 @@ def manejar_conn(addresses, conn, addr):
             else:
                 mensajes_clientes(data.decode(), conn, addr)
         except:
-            print(f"Se quita al cliente #{addresses.index(addr[1])}")
+            print(f"Se quita al cliente #{addr[1]}")
             with lock:
-                addresses.remove(addr[1])
+                connexiones.pop(addr[1])
             break
 
 
@@ -61,13 +68,13 @@ def recibir_conexiones():
         # Por ahora solo se hace con puerto porque es local,
         # pero si quieren usar web se tiene que pasar la IP y el puerto.
         with lock:
-            addresses.append(addr[1]) 
+            connexiones[addr[1]] = (conn)
             print(f"Conexion Aceptada: {addr[1]}")
 
         # No se juntan hilos, porque cuando se sale del while con el break
         # la función "manejar_conn" RETORNA, por lo que su función target
         # deja de servir y este de termina y destruye.
-        threading.Thread(target=manejar_conn, args=(addresses, conn, addr)).start()
+        threading.Thread(target=manejar_conn, args=(connexiones, conn, addr)).start()
         print(f"Hilos vivos: {threading.active_count()}")
 
 recibir_conexiones()
